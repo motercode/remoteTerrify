@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, type RefObject } from "react";
+import { RotateCcw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -15,7 +17,14 @@ export const AXIS_COLORS: Record<Axis, string> = {
 };
 
 const WINDOW_MS = 10_000;
+/** Ventana de los indicadores de máximo/mínimo, para ayudar a tarar umbrales. */
+const PEAK_WINDOW_MS = 30_000;
 const SIM_HZ = 30;
+
+function setText(root: HTMLElement, selector: string, text: string) {
+  const el = root.querySelector<HTMLElement>(selector);
+  if (el && el.textContent !== text) el.textContent = text;
+}
 
 /** Lee el historial en un bucle de animación: no provoca renders de React. */
 function useLiveCanvas(
@@ -23,6 +32,7 @@ function useLiveCanvas(
   values: RefObject<HTMLDivElement | null>,
   history: RefObject<MotionSample[]>,
   config: AppConfig,
+  peaksSince: RefObject<number>,
 ) {
   const configRef = useRef(config);
   useEffect(() => {
@@ -47,7 +57,9 @@ function useLiveCanvas(
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, w, h);
 
-      const data = history.current;
+      const now = performance.now();
+      const all = history.current;
+      const data = all.filter((s) => s.t >= now - WINDOW_MS);
       const cfg = configRef.current;
       const thresholds = [...cfg.start.conditions, ...cfg.stop.conditions]
         .filter((cond) => cond.enabled)
@@ -89,7 +101,6 @@ function useLiveCanvas(
       }
       ctx.setLineDash([]);
 
-      const now = performance.now();
       const xOf = (t: number) => w - ((now - t) / WINDOW_MS) * w;
       for (const axis of AXES) {
         ctx.strokeStyle = AXIS_COLORS[axis];
@@ -102,17 +113,27 @@ function useLiveCanvas(
         ctx.stroke();
       }
 
-      const last = data[data.length - 1];
-      if (last && values.current) {
-        for (const axis of AXES) {
-          const el = values.current.querySelector<HTMLElement>(`[data-axis="${axis}"]`);
-          if (el) el.textContent = last[axis].toFixed(2);
+      const root = values.current;
+      if (!root) return;
+      const last = all[all.length - 1];
+      const since = Math.max(now - PEAK_WINDOW_MS, peaksSince.current);
+      const recent = all.filter((s) => s.t >= since);
+      for (const axis of AXES) {
+        if (last) setText(root, `[data-axis="${axis}"]`, last[axis].toFixed(2));
+        let max = -Infinity;
+        let min = Infinity;
+        for (const s of recent) {
+          if (s[axis] > max) max = s[axis];
+          if (s[axis] < min) min = s[axis];
         }
+        const has = recent.length > 0;
+        setText(root, `[data-peak-max="${axis}"]`, has ? max.toFixed(2) : "–");
+        setText(root, `[data-peak-min="${axis}"]`, has ? min.toFixed(2) : "–");
       }
     };
     draw();
     return () => cancelAnimationFrame(raf);
-  }, [canvas, values, history]);
+  }, [canvas, values, history, peaksSince]);
 }
 
 /** Genera muestras falsas para probar sin móvil. */
@@ -149,7 +170,8 @@ export function SensorLive({
   const [simulate, setSimulate] = useState(false);
   const simEnabled = simulate && !sensorActive;
   const [sim, setSim] = useSimulator(simEnabled, push);
-  useLiveCanvas(canvas, values, history, config);
+  const peaksSince = useRef(0);
+  useLiveCanvas(canvas, values, history, config, peaksSince);
 
   return (
     <Card className="gap-3 py-4">
@@ -166,8 +188,33 @@ export function SensorLive({
               <div data-axis={axis} className="font-mono text-lg tabular-nums">
                 –
               </div>
+              <div className="mt-1 border-t border-border/60 pt-1 font-mono text-[11px] leading-tight tabular-nums text-muted-foreground">
+                <div title="Máximo de los últimos 30 s">
+                  ↑ <span data-peak-max={axis}>–</span>
+                </div>
+                {axis !== "mag" && (
+                  <div title="Mínimo de los últimos 30 s">
+                    ↓ <span data-peak-min={axis}>–</span>
+                  </div>
+                )}
+              </div>
             </div>
           ))}
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs text-muted-foreground">
+            ↑ máximo y ↓ mínimo de los últimos 30 s: haz el gesto y úsalos para fijar los umbrales.
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            className="shrink-0"
+            onClick={() => {
+              peaksSince.current = performance.now();
+            }}
+          >
+            <RotateCcw /> Reiniciar
+          </Button>
         </div>
         <canvas ref={canvas} className="h-40 w-full rounded-md bg-black/30" />
         <p className="text-xs text-muted-foreground">

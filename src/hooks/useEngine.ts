@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAudioPlayer } from "@/hooks/useAudioPlayer";
-import { useDeviceMotion } from "@/hooks/useDeviceMotion";
+import { useDeviceMotion, type MotionStatus } from "@/hooks/useDeviceMotion";
+import { log } from "@/lib/log";
 import { useWakeLock } from "@/hooks/useWakeLock";
 import {
   INITIAL_STATE,
@@ -15,6 +16,15 @@ import { evaluateRuleSet } from "@/lib/motion/evaluate";
 import type { AppConfig, MotionSample } from "@/lib/motion/types";
 
 const TICK_MS = 50;
+
+const MOTION_STATUS_TEXT: Record<MotionStatus, string> = {
+  idle: "sin activar",
+  waiting: "activado, esperando datos",
+  active: "recibiendo datos",
+  insecure: "bloqueado: la página no está en HTTPS",
+  unsupported: "este navegador no tiene acelerómetro",
+  denied: "permiso denegado",
+};
 
 function machineConfig(c: AppConfig): MachineConfig {
   return {
@@ -63,6 +73,16 @@ export function useEngine(config: AppConfig) {
     const id = setInterval(() => dispatch({ type: "TICK", now: performance.now() }), TICK_MS);
     return () => clearInterval(id);
   }, [pending, dispatch]);
+
+  const { phase, lastSource } = state;
+  useEffect(() => {
+    log("info", `Estado: ${phase}${lastSource ? ` (origen: ${lastSource})` : ""}`);
+  }, [phase, lastSource]);
+
+  useEffect(() => {
+    const failed = ["insecure", "unsupported", "denied"].includes(motion.status);
+    log(failed ? "error" : "info", `Sensor: ${MOTION_STATUS_TEXT[motion.status]}`);
+  }, [motion.status]);
 
   // El audio sigue a la fase: suena al entrar en zona audible y para al salir.
   const audible = isAudible(state.phase);

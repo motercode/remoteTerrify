@@ -6,9 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useEngine } from "@/hooks/useEngine";
 import type { MotionStatus } from "@/hooks/useDeviceMotion";
+import { playTestBeep } from "@/hooks/useAudioPlayer";
+import { installGlobalLogHandlers, log } from "@/lib/log";
 import { DEFAULT_CONFIG, type AppConfig } from "@/lib/motion/types";
 import { loadConfig, saveConfig } from "@/lib/storage/config";
 import { AudioPicker } from "./AudioPicker";
+import { LogConsole } from "./LogConsole";
 import { RuleEditor } from "./RuleEditor";
 import { SensorLive } from "./SensorLive";
 import { SettingsPanel } from "./SettingsPanel";
@@ -28,6 +31,14 @@ export function Dashboard() {
   const { state, dispatch, arm, motion, audio, wakeLock } = useEngine(config);
 
   useEffect(() => saveConfig(config), [config]);
+
+  useEffect(() => {
+    installGlobalLogHandlers();
+    log(
+      window.isSecureContext ? "info" : "warn",
+      `Página cargada en ${location.origin} (${window.isSecureContext ? "HTTPS" : "sin HTTPS: el sensor no funcionará"})`,
+    );
+  }, []);
 
   const patch = useCallback(
     (p: Partial<AppConfig>) => setConfig((c) => ({ ...c, ...p })),
@@ -119,9 +130,16 @@ export function Dashboard() {
             volume={config.volume}
             onChange={patch}
             error={audio.error}
+            ready={audio.ready}
+            playing={audio.playing}
+            onTestPlay={() => void audio.play()}
+            onTestStop={audio.stop}
+            onBeep={() => void playTestBeep(config.volume)}
           />
         </TabsContent>
       </Tabs>
+
+      <LogConsole />
     </main>
   );
 }
