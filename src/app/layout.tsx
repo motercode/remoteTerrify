@@ -3,10 +3,10 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Next Netlify Template",
-    template: "%s | Next Netlify Template",
+    default: "Remote Terrify Dashboard",
+    template: "%s | Remote Terrify Dashboard",
   },
-  description: "Base reutilizable para aplicaciones Next.js desplegadas en Netlify.",
+  description: "Dashboard local para disparar audio con umbrales y delays de acelerómetro.",
   metadataBase: new URL(
     process.env.URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
   ),
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     type: "website",
     locale: "es_ES",
     url: "/",
-    siteName: "Next Netlify Template",
+    siteName: "Remote Terrify Dashboard",
   },
 };
 

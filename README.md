@@ -1,6 +1,6 @@
-# Next Netlify Template
+# Remote Terrify Dashboard
 
-Plantilla base para crear aplicaciones con **Next.js**, **TypeScript**, **Tailwind CSS 4**, **shadcn/ui** y **Netlify**.
+Webapp local (sin conexión a internet) para cargar un audio desde el equipo y reproducirlo en función de umbrales por eje del acelerómetro.
 
 ## Requisitos
 
@@ -32,7 +32,7 @@ src/
   app/
     globals.css  estilos globales y variables de tema
     layout.tsx   layout y metadatos
-    page.tsx     página inicial
+    page.tsx     dashboard local de audio por acelerómetro
   components/
     ui/          componentes reutilizables de shadcn/ui
   lib/
@@ -72,4 +72,10 @@ npm install
 npm run dev
 ```
 
-Actualiza el nombre, la descripción y los metadatos de `src/app/layout.tsx` para tu aplicación.
+El dashboard incluye:
+
+- Selector de archivo para subir audio local.
+- Umbrales de inicio para ejes X/Y/Z.
+- Umbrales de final para ejes X/Y/Z.
+- Delay de inicio y delay de final en milisegundos.
+- Modo con `DeviceMotionEvent` y controles manuales para simular aceleración.
