@@ -12,8 +12,8 @@ export type MotionStatus =
   | "waiting"
   | "active";
 
-/** Duración del historial que se guarda para el gráfico. */
-const HISTORY_MS = 10_000;
+/** Duración del historial: cubre el gráfico (10 s) y los picos (30 s). */
+const HISTORY_MS = 30_000;
 
 interface IOSDeviceMotionEvent {
   requestPermission?: () => Promise<"granted" | "denied">;

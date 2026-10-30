@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Check, Trash2, Upload } from "lucide-react";
+import { AudioLines, Check, Play, Square, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
+import { describeError, log } from "@/lib/log";
 import { addAudio, deleteAudio, listAudios, type StoredAudio } from "@/lib/storage/audioStore";
 import { cn } from "@/lib/utils";
 
@@ -16,12 +17,22 @@ export function AudioPicker({
   volume,
   onChange,
   error,
+  ready,
+  playing,
+  onTestPlay,
+  onTestStop,
+  onBeep,
 }: {
   audioId: string | null;
   loop: boolean;
   volume: number;
   onChange: (patch: { audioId?: string | null; loop?: boolean; volume?: number }) => void;
   error: string | null;
+  ready: boolean;
+  playing: boolean;
+  onTestPlay: () => void;
+  onTestStop: () => void;
+  onBeep: () => void;
 }) {
   const [audios, setAudios] = useState<StoredAudio[]>([]);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -29,20 +40,31 @@ export function AudioPicker({
   const refresh = useCallback(async () => setAudios(await listAudios()), []);
 
   useEffect(() => {
-    void listAudios().then(setAudios);
+    listAudios()
+      .then(setAudios)
+      .catch((e: unknown) => log("error", `No se pudo leer la lista de audios: ${describeError(e)}`));
   }, []);
 
   const onFile = async (file: File | undefined) => {
     if (!file) return;
-    const stored = await addAudio(file);
-    await refresh();
-    onChange({ audioId: stored.id });
+    try {
+      const stored = await addAudio(file);
+      log("info", `Audio subido: ${file.name}`);
+      await refresh();
+      onChange({ audioId: stored.id });
+    } catch (e) {
+      log("error", `No se pudo guardar ${file.name}: ${describeError(e)}`);
+    }
   };
 
   const onDelete = async (id: string) => {
-    await deleteAudio(id);
-    if (id === audioId) onChange({ audioId: null });
-    await refresh();
+    try {
+      await deleteAudio(id);
+      if (id === audioId) onChange({ audioId: null });
+      await refresh();
+    } catch (e) {
+      log("error", `No se pudo borrar el audio: ${describeError(e)}`);
+    }
   };
 
   return (
@@ -96,6 +118,26 @@ export function AudioPicker({
             ))}
           </ul>
         )}
+
+        <div className="grid grid-cols-2 gap-2">
+          {playing ? (
+            <Button variant="secondary" onClick={onTestStop}>
+              <Square /> Parar prueba
+            </Button>
+          ) : (
+            <Button onClick={onTestPlay} disabled={!ready}>
+              <Play /> Probar audio
+            </Button>
+          )}
+          <Button variant="outline" onClick={onBeep}>
+            <AudioLines /> Pitido
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Si el pitido se oye pero el audio no, el problema está en el archivo; si tampoco se
+          oye el pitido, revisa el volumen del móvil y la conexión Bluetooth. Los errores salen
+          en el log de abajo.
+        </p>
 
         <div className="flex items-center justify-between">
           <Label htmlFor="loop">Repetir en bucle</Label>
