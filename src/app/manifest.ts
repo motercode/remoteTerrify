@@ -1,5 +1,8 @@
 import type { MetadataRoute } from "next";
 
+// Necesario para el export estático de la app Android.
+export const dynamic = "force-static";
+
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "remoteTerrify",

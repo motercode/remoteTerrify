@@ -4,7 +4,7 @@
  * DISARMED → ARMED → START_PENDING → PLAYING → STOP_PENDING → ARMED
  *
  * El audio suena en PLAYING y STOP_PENDING. Las fuentes de disparo
- * (acelerómetro, y en el futuro voz) solo emiten eventos; no conocen el audio.
+ * (acelerómetro, WiFi, y en el futuro voz) solo emiten eventos; no conocen el audio.
  */
 
 export type Phase =
@@ -14,7 +14,7 @@ export type Phase =
   | "PLAYING"
   | "STOP_PENDING";
 
-export type TriggerSource = "motion" | "manual" | "voice";
+export type TriggerSource = "motion" | "manual" | "voice" | "wifi";
 
 export interface Timing {
   holdMs: number;

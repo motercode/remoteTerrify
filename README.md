@@ -26,6 +26,26 @@ npm run dev:phone
 
 Opcional: para quitar el aviso de certificado, instala en el móvil la CA de mkcert (`mkcert -CAROOT` muestra dónde está `rootCA.pem`).
 
+## App Android (disparo por WiFi)
+
+Un navegador no puede ver las redes WiFi, así que para disparar por WiFi la web se empaqueta como app Android con [Capacitor](https://capacitorjs.com/) y un plugin nativo (`android/app/src/main/java/com/motercode/remoteterrify/WifiScanPlugin.java`).
+
+Requisitos: Android Studio (trae el JDK 21) y el SDK de Android.
+
+```bash
+npm run android        # export estático + cap sync + abre Android Studio (▶ para instalar)
+npm run build:android  # solo genera out/ y sincroniza android/
+```
+
+En la pestaña **WiFi**:
+
+- **Red que inicia**: al aparecer, se inicia el audio (respeta el delay de Inicio). Si ya se ve al armar, cuenta como recién aparecida.
+- **Red que para**: cuando, habiéndose visto, falta en *N* escaneos seguidos, se para el audio (respeta el delay de Final). Pueden ser la misma red.
+
+> **Permiso de ubicación y ubicación activada**: Android no devuelve redes WiFi sin ambos.
+> **Escaneo cada 30 s como mínimo**: Android limita los escaneos a ~4 cada 2 minutos.
+> **Primer plano**: como con el acelerómetro, la app debe seguir abierta y con la pantalla encendida.
+
 ## Cómo funciona
 
 ```
@@ -46,8 +66,10 @@ DESARMADO → ARMADO → (inicio + mantener) → INICIANDO (delay) → REPRODUCI
 src/
   lib/motion/       tipos, configuración por defecto y evaluación de condiciones
   lib/engine/       máquina de estados pura (testeada)
+  lib/wifi/         detección de aparición/pérdida de redes (testeada)
   lib/storage/      configuración (localStorage) y audios (IndexedDB)
-  hooks/            sensor, audio, wake lock y useEngine que los une
+  hooks/            sensor, WiFi, audio, wake lock y useEngine que los une
+android/            proyecto nativo de Capacitor (plugin WifiScan)
   components/dashboard/  UI del panel
 ```
 

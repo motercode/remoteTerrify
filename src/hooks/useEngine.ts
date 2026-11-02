@@ -5,6 +5,7 @@ import { useAudioPlayer } from "@/hooks/useAudioPlayer";
 import { useDeviceMotion, type MotionStatus } from "@/hooks/useDeviceMotion";
 import { log } from "@/lib/log";
 import { useWakeLock } from "@/hooks/useWakeLock";
+import { useWifiScan, type WifiStatus } from "@/hooks/useWifiScan";
 import {
   INITIAL_STATE,
   isAudible,
@@ -14,6 +15,7 @@ import {
 } from "@/lib/engine/machine";
 import { evaluateRuleSet } from "@/lib/motion/evaluate";
 import type { AppConfig, MotionSample } from "@/lib/motion/types";
+import { INITIAL_WIFI_TRACKER, stepWifi } from "@/lib/wifi/detect";
 
 const TICK_MS = 50;
 
@@ -26,6 +28,14 @@ const MOTION_STATUS_TEXT: Record<MotionStatus, string> = {
   denied: "permiso denegado",
 };
 
+const WIFI_STATUS_TEXT: Record<WifiStatus, string> = {
+  unsupported: "solo disponible en la app Android",
+  off: "desactivado",
+  denied: "permiso de ubicación denegado",
+  locationOff: "la ubicación del móvil está desactivada",
+  scanning: "escaneando",
+};
+
 function machineConfig(c: AppConfig): MachineConfig {
   return {
     start: { holdMs: c.start.holdMs, delayMs: c.start.delayMs },
@@ -33,7 +43,7 @@ function machineConfig(c: AppConfig): MachineConfig {
   };
 }
 
-/** Une sensor + máquina de estados + audio. Toda la lógica de decisión está en machine.ts. */
+/** Une sensor + WiFi + máquina de estados + audio. Toda la lógica de decisión está en machine.ts. */
 export function useEngine(config: AppConfig) {
   const [state, setState] = useState(INITIAL_STATE);
   const configRef = useRef(config);
@@ -59,10 +69,30 @@ export function useEngine(config: AppConfig) {
     [dispatch],
   );
 
+  const wifiTracker = useRef(INITIAL_WIFI_TRACKER);
+  const onWifiScan = useCallback(
+    (ssids: string[]) => {
+      const c = configRef.current.wifi;
+      const r = stepWifi(wifiTracker.current, ssids, c);
+      wifiTracker.current = r.tracker;
+      const now = performance.now();
+      if (r.start) {
+        log("info", `WiFi: aparece «${c.startSsid.trim()}»`);
+        dispatch({ type: "TRIGGER_START", now, source: "wifi" });
+      }
+      if (r.stop) {
+        log("info", `WiFi: perdida «${c.stopSsid.trim()}»`);
+        dispatch({ type: "TRIGGER_STOP", now, source: "wifi" });
+      }
+    },
+    [dispatch],
+  );
+
   const motion = useDeviceMotion(config.source, config.smoothing, onSample);
   const audio = useAudioPlayer(config.audioId, config.loop, config.volume, () =>
     dispatch({ type: "AUDIO_ENDED" }),
   );
+  const wifi = useWifiScan(config.wifi.enabled, config.wifi.scanIntervalMs, onWifiScan);
   const armed = state.phase !== "DISARMED";
   const wakeLock = useWakeLock(armed);
 
@@ -84,6 +114,11 @@ export function useEngine(config: AppConfig) {
     log(failed ? "error" : "info", `Sensor: ${MOTION_STATUS_TEXT[motion.status]}`);
   }, [motion.status]);
 
+  useEffect(() => {
+    const failed = ["denied", "locationOff"].includes(wifi.status);
+    log(failed ? "error" : "info", `WiFi: ${WIFI_STATUS_TEXT[wifi.status]}`);
+  }, [wifi.status]);
+
   // El audio sigue a la fase: suena al entrar en zona audible y para al salir.
   const audible = isAudible(state.phase);
   const { play, stop } = audio;
@@ -94,8 +129,10 @@ export function useEngine(config: AppConfig) {
 
   const arm = useCallback(async () => {
     await audio.unlock();
+    // Una red de inicio ya visible al armar cuenta como recién aparecida.
+    wifiTracker.current = INITIAL_WIFI_TRACKER;
     dispatch({ type: "ARM" });
   }, [audio, dispatch]);
 
-  return { state, dispatch, arm, motion, audio, wakeLock };
+  return { state, dispatch, arm, motion, audio, wakeLock, wifi };
 }

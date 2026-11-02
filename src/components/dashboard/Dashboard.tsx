@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useEngine } from "@/hooks/useEngine";
 import type { MotionStatus } from "@/hooks/useDeviceMotion";
+import type { WifiStatus } from "@/hooks/useWifiScan";
 import { playTestBeep } from "@/hooks/useAudioPlayer";
 import { installGlobalLogHandlers, log } from "@/lib/log";
 import { DEFAULT_CONFIG, type AppConfig } from "@/lib/motion/types";
@@ -16,6 +17,7 @@ import { RuleEditor } from "./RuleEditor";
 import { SensorLive } from "./SensorLive";
 import { SettingsPanel } from "./SettingsPanel";
 import { StatusPanel } from "./StatusPanel";
+import { WifiPanel } from "./WifiPanel";
 
 const MOTION_WARNINGS: Partial<Record<MotionStatus, string>> = {
   insecure:
@@ -25,10 +27,16 @@ const MOTION_WARNINGS: Partial<Record<MotionStatus, string>> = {
   waiting: "Esperando datos del sensor… (en un PC no llegarán: usa el simulador).",
 };
 
+const WIFI_WARNINGS: Partial<Record<WifiStatus, string>> = {
+  unsupported: "El disparo por WiFi solo funciona en la app Android.",
+  denied: "Permiso de ubicación denegado: Android lo exige para ver las redes WiFi.",
+  locationOff: "Activa la ubicación del móvil: sin ella Android no devuelve redes WiFi.",
+};
+
 export function Dashboard() {
   // Este componente solo se monta en el cliente, así que se puede leer localStorage aquí.
   const [config, setConfig] = useState<AppConfig>(loadConfig);
-  const { state, dispatch, arm, motion, audio, wakeLock } = useEngine(config);
+  const { state, dispatch, arm, motion, audio, wakeLock, wifi } = useEngine(config);
 
   useEffect(() => saveConfig(config), [config]);
 
@@ -56,6 +64,8 @@ export function Dashboard() {
   else if (!audio.ready) warnings.push("Cargando audio…");
   const motionWarning = MOTION_WARNINGS[motion.status];
   if (motionWarning) warnings.push(motionWarning);
+  const wifiWarning = config.wifi.enabled ? WIFI_WARNINGS[wifi.status] : undefined;
+  if (wifiWarning) warnings.push(wifiWarning);
   if (state.phase !== "DISARMED" && !wakeLock.held)
     warnings.push("No se pudo bloquear la pantalla encendida: si se apaga, el sensor se detiene.");
 
@@ -79,6 +89,7 @@ export function Dashboard() {
           <TabsTrigger value="sensor">Sensor</TabsTrigger>
           <TabsTrigger value="start">Inicio</TabsTrigger>
           <TabsTrigger value="stop">Final</TabsTrigger>
+          <TabsTrigger value="wifi">WiFi</TabsTrigger>
           <TabsTrigger value="audio">Audio</TabsTrigger>
         </TabsList>
 
@@ -120,6 +131,17 @@ export function Dashboard() {
             delayLabel="Delay de final"
             rule={config.stop}
             onChange={(stop) => patch({ stop })}
+          />
+        </TabsContent>
+
+        <TabsContent value="wifi">
+          <WifiPanel
+            wifi={config.wifi}
+            onChange={(w) => patch({ wifi: w })}
+            status={wifi.status}
+            networks={wifi.networks}
+            lastScanAt={wifi.lastScanAt}
+            onScan={() => void wifi.scanNow()}
           />
         </TabsContent>
 

@@ -1,3 +1,5 @@
+import { DEFAULT_WIFI_CONFIG, type WifiConfig } from "../wifi/types";
+
 export type Axis = "x" | "y" | "z" | "mag";
 export type Op = ">" | "<" | "abs>" | "abs<";
 
@@ -40,6 +42,7 @@ export interface AppConfig {
   audioId: string | null;
   loop: boolean;
   volume: number;
+  wifi: WifiConfig;
 }
 
 function conditions(
@@ -72,4 +75,5 @@ export const DEFAULT_CONFIG: AppConfig = {
   audioId: null,
   loop: true,
   volume: 1,
+  wifi: DEFAULT_WIFI_CONFIG,
 };

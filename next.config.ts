@@ -11,6 +11,8 @@ function lanAddresses(): string[] {
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // La app Android (Capacitor) empaqueta la web como ficheros estáticos en out/.
+  ...(process.env.BUILD_TARGET === "android" && { output: "export" }),
   // En desarrollo Next bloquea recursos pedidos desde otro host (el móvil).
   allowedDevOrigins: lanAddresses(),
 };

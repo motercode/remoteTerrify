@@ -12,6 +12,7 @@ export function loadConfig(): AppConfig {
       ...saved,
       start: { ...DEFAULT_CONFIG.start, ...saved.start },
       stop: { ...DEFAULT_CONFIG.stop, ...saved.stop },
+      wifi: { ...DEFAULT_CONFIG.wifi, ...saved.wifi },
     };
   } catch {
     return DEFAULT_CONFIG;
